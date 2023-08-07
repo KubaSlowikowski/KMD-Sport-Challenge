@@ -18,3 +18,5 @@ function logger(req, res, next) {
     console.log(req.originalUrl);
     next();
 }
+
+// https://www.strava.com/oauth/authorize?client_id=111725&response_type=code&redirect_uri=https://localhost/exchange_token&approval_prompt=force&scope=read
