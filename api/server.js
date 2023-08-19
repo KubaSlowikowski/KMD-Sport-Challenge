@@ -3,9 +3,11 @@ const { connectToDatabase, closeClient } = require('./db/database-config');
 const express = require('express');
 const axios = require('axios');
 const app = express();
-var StravaApiV3 = require('strava_api_v3');
+const StravaApiV3 = require('strava_api_v3');
+const logger = require('morgan');
 
 app.set('view engine', 'ejs');
+app.use(logger('dev'));
 app.use(express.urlencoded({ extended: true }))
 app.use(express.json())
 app.use(express.static("public"))
@@ -17,18 +19,69 @@ app.get('/', (req, res) => {
 })
 
 app.get('/club/activities/:athleteId', async (req, res) => {
-    const { athleteId } = req.params;
+        const athleteId = Number(req.params.athleteId);
 
-    // get access tokens from db
-    const database = await connectToDatabase();
-    const athletesCollection = database.collection("athletes");
+        // get access tokens from db
+        const database = await connectToDatabase();
+        const athletesCollection = database.collection("athletes");
+        const athlete = await athletesCollection.findOne({ athleteId: athleteId });
 
-    // refresh in case of token expired
+        if (!athlete) {
+            res.status(404).send('Athlete not found');
+        }
 
-    // get data from strava
+        let access_token = athlete.access_token;
 
-    res.send('dudd')
-})
+        if (isTokenExpired(athlete.expires_at)) {
+            // make a request for new access token using a refresh token
+            access_token = await refreshToken(athlete.refresh_token, athleteId);
+        }
+
+
+        res.send({ data: {} });
+
+        // get data from strava
+
+        function isTokenExpired(expires_at) {
+            const currentTimestampInSeconds = Math.floor(new Date().getTime() / 1000);
+            return expires_at < currentTimestampInSeconds;
+        }
+
+        async function refreshToken(refresh_token, athlete_id) {
+            const tokenEndpoint = 'https://www.strava.com/oauth/token';
+            const requestBody = {
+                client_id: process.env.CLIENT_ID,
+                client_secret: process.env.CLIENT_SECRET,
+                grant_type: 'refresh_token',
+                refresh_token: refresh_token
+            }
+
+            try {
+                const response = await axios.post(tokenEndpoint, requestBody);
+                const { token_type, access_token, refresh_token, expires_at, expires_in } = response.data;
+
+                const database = await connectToDatabase();
+                const athletesCollection = database.collection("athletes");
+
+                const data = {
+                    token_type: token_type,
+                    access_token: access_token,
+                    refresh_token: refresh_token,
+                    expires_at: expires_at,
+                    expires_in: expires_in,
+                };
+                await athletesCollection.updateOne({ athleteId: athlete_id }, { $set: data }, { upsert: true });
+                return access_token;
+            } catch (err) {
+                if (err.response.status === 400) {
+                    res.redirect('/login');
+                } else {
+                    res.send('Error retrieving access token')
+                }
+            }
+        }
+    }
+)
 
 
 app.get('/login', (req, res) => {
@@ -47,10 +100,12 @@ app.get('/login', (req, res) => {
 })
 
 app.get('/callback', async (req, res) => {
+    // TODO check user accepted scopes
+
     const tokenEndpoint = 'https://www.strava.com/oauth/token'
 
     if (req.query.error === 'access_denied') {
-        res.redirect('/');
+        res.redirect('/login');
     }
 
     const { code } = req.query // authorization code
@@ -60,7 +115,6 @@ app.get('/callback', async (req, res) => {
         client_secret: process.env.CLIENT_SECRET,
         code,
         grant_type: 'authorization_code',
-        redirect_uri: process.env.REDIRECT_URI
     }
 
     try {
@@ -72,7 +126,7 @@ app.get('/callback', async (req, res) => {
 
         const data = {
             token_type: token_type,
-            accessToken: access_token,
+            access_token: access_token,
             refresh_token: refresh_token,
             expires_at: expires_at,
             expires_in: expires_in,
