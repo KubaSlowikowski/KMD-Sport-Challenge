@@ -33,14 +33,16 @@ app.get('/club/activities/:athleteId', async (req, res) => {
         let access_token = athlete.access_token;
 
         if (isTokenExpired(athlete.expires_at)) {
-            // make a request for new access token using a refresh token
             access_token = await refreshToken(athlete.refresh_token, athleteId);
         }
 
+        try {
+            const response = await axios.get(`https://www.strava.com/api/v3/clubs/${process.env.STRAVA_CLUB_ID}/activities`, { headers: { Authorization: `Bearer ${access_token}` } })
+            res.send(response.data)
+        } catch {
+            res.status(500).send('error')
+        }
 
-        res.send({ data: {} });
-
-        // get data from strava
 
         function isTokenExpired(expires_at) {
             const currentTimestampInSeconds = Math.floor(new Date().getTime() / 1000);
@@ -150,7 +152,6 @@ app.get('/athlete', async (req, res) => {
 
     // Configure OAuth2 access token for authorization: strava_oauth
     var strava_oauth = defaultClient.authentications['strava_oauth'];
-    // strava_oauth.accessToken = req.session.accessToken;
     strava_oauth.accessToken = null;
 
     var apiInstance = new StravaApiV3.AthletesApi();
@@ -169,7 +170,6 @@ app.get('/athlete', async (req, res) => {
 })
 
 async function cleanup() {
-    console.log('cleanup')
     await closeClient();
     process.exit();
 }
