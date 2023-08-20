@@ -45,7 +45,7 @@ app.get('/athlete/activities/:athleteId', async (req, res) => {
 
         try {
             const response = await axios.get(ENDPOINTS.STRAVA_ATHLETE_ACTIVITIES, {
-                params: { per_page: 1 },
+                params: { after: getChallengeStartTimestamp() },
                 headers: { Authorization: `Bearer ${access_token}` }
             })
             res.send(response.data)
