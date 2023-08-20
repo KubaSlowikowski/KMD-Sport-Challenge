@@ -1,10 +1,12 @@
 require('dotenv').config();
-const { connectToDatabase, closeClient } = require('./db/database-config');
+const { connectToDatabase, closeClient } = require('./db/database');
 const express = require('express');
 const axios = require('axios');
 const app = express();
 const StravaApiV3 = require('strava_api_v3');
 const logger = require('morgan');
+const { refreshToken, isTokenExpired } = require("./oauth");
+const { ENDPOINTS, GRANT_TYPES, SCOPES } = require("./utils/utils");
 
 app.set('view engine', 'ejs');
 app.use(logger('dev'));
@@ -13,67 +15,24 @@ app.use(express.json())
 app.use(express.static("public"))
 app.listen(3000, () => console.log('Server listening on http://localhost:3000'));
 
-
 app.get('/', (req, res) => {
     res.send('Hello World!')
 })
 
-app.get('/club/activities/:athleteId', async (req, res) => {
+app.get('/athlete/activities/:athleteId', async (req, res) => {
         const athleteId = Number(req.params.athleteId);
 
         // get access tokens from db
-        const database = await connectToDatabase();
-        const athletesCollection = database.collection("athletes");
-        const athlete = await athletesCollection.findOne({ athleteId: athleteId });
+        const athlete = await findAthlete(athleteId);
 
         if (!athlete) {
             res.status(404).send('Athlete not found');
         }
 
         let access_token = athlete.access_token;
-
         if (isTokenExpired(athlete.expires_at)) {
-            access_token = await refreshToken(athlete.refresh_token, athleteId);
-        }
-
-        try {
-            const response = await axios.get(`https://www.strava.com/api/v3/clubs/${process.env.STRAVA_CLUB_ID}/activities`, { headers: { Authorization: `Bearer ${access_token}` } })
-            res.send(response.data)
-        } catch {
-            res.status(500).send('error')
-        }
-
-
-        function isTokenExpired(expires_at) {
-            const currentTimestampInSeconds = Math.floor(new Date().getTime() / 1000);
-            return expires_at < currentTimestampInSeconds;
-        }
-
-        async function refreshToken(refresh_token, athlete_id) {
-            const tokenEndpoint = 'https://www.strava.com/oauth/token';
-            const requestBody = {
-                client_id: process.env.CLIENT_ID,
-                client_secret: process.env.CLIENT_SECRET,
-                grant_type: 'refresh_token',
-                refresh_token: refresh_token
-            }
-
             try {
-                const response = await axios.post(tokenEndpoint, requestBody);
-                const { token_type, access_token, refresh_token, expires_at, expires_in } = response.data;
-
-                const database = await connectToDatabase();
-                const athletesCollection = database.collection("athletes");
-
-                const data = {
-                    token_type: token_type,
-                    access_token: access_token,
-                    refresh_token: refresh_token,
-                    expires_at: expires_at,
-                    expires_in: expires_in,
-                };
-                await athletesCollection.updateOne({ athleteId: athlete_id }, { $set: data }, { upsert: true });
-                return access_token;
+                access_token = await refreshToken(athlete.refresh_token, athleteId);
             } catch (err) {
                 if (err.response.status === 400) {
                     res.redirect('/login');
@@ -82,19 +41,47 @@ app.get('/club/activities/:athleteId', async (req, res) => {
                 }
             }
         }
+
+        try {
+            const response = await axios.get(ENDPOINTS.STRAVA_ATHLETE_ACTIVITIES, {
+                params: { per_page: 1 },
+                headers: { Authorization: `Bearer ${access_token}` }
+            })
+            res.send(response.data)
+        } catch {
+            res.status(500).send('error')
+        }
     }
 )
 
+app.get('/challenge/activities', async (req, res) => {
+    const database = await connectToDatabase();
+    const athletesCollection = database.collection("athletes");
+
+    const athletesCursor = athletesCollection.find();
+
+    for await (const athlete of athletesCursor) {
+        let access_token = athlete.access_token;
+        if (isTokenExpired(athlete.expires_at)) {
+            access_token = await refreshToken(athlete.refresh_token, athlete.athleteId);
+        }
+
+        const response = await axios.get(ENDPOINTS.STRAVA_ATHLETE_ACTIVITIES, { headers: { Authorization: `Bearer ${athlete.access_token}` } });
+
+
+    }
+})
+
 
 app.get('/login', (req, res) => {
-    const authorizeEndpoint = 'https://www.strava.com/oauth/authorize'
+    const authorizeEndpoint = ENDPOINTS.STRAVA_AUTHORIZE
 
     const queryParams = new URLSearchParams({
         client_id: process.env.CLIENT_ID,
         response_type: 'code',
         redirect_uri: process.env.REDIRECT_URI,
         approval_prompt: 'force',
-        scope: 'read,activity:read' // read public segments, public routes, public profile data, public posts, public events, club feeds, and leaderboards
+        scope: `${SCOPES.READ},${SCOPES.ACTIVITY_READ}`
     })
 
     const url = `${authorizeEndpoint}?${queryParams}`
@@ -104,7 +91,7 @@ app.get('/login', (req, res) => {
 app.get('/callback', async (req, res) => {
     // TODO check user accepted scopes
 
-    const tokenEndpoint = 'https://www.strava.com/oauth/token'
+    const tokenEndpoint = ENDPOINTS.STRAVA_TOKEN
 
     if (req.query.error === 'access_denied') {
         res.redirect('/login');
@@ -116,7 +103,7 @@ app.get('/callback', async (req, res) => {
         client_id: process.env.CLIENT_ID,
         client_secret: process.env.CLIENT_SECRET,
         code,
-        grant_type: 'authorization_code',
+        grant_type: GRANT_TYPES.AUTHORIZATION_CODE,
     }
 
     try {
@@ -163,11 +150,21 @@ app.get('/athlete', async (req, res) => {
             }
         } else {
             res.send(`Hello ${data.firstname} ${data.lastname}`);
-            // console.log(data);
         }
     };
     apiInstance.getLoggedInAthlete(callback);
 })
+
+/**
+ * Find athlete from database by his ID.
+ * @param athleteId Athlete ID.
+ * @return {Promise<*>} Returns promise with athlete (if exists), otherwise null.
+ */
+async function findAthlete(athleteId) {
+    const database = await connectToDatabase();
+    const athletesCollection = database.collection("athletes");
+    return athletesCollection.findOne({ athleteId: athleteId });
+}
 
 async function cleanup() {
     await closeClient();
