@@ -70,7 +70,7 @@ app.get('/challenge/activities', async (req, res) => {
         try {
             const response = await axios.get(ENDPOINTS.STRAVA_ATHLETE_ACTIVITIES, {
                 params: { after: getChallengeStartTimestamp() },
-                headers: { Authorization: `Bearer ${athlete.access_token}` }
+                headers: { Authorization: `Bearer ${access_token}` }
             });
             if (response.data.length > 0) {
                 activities.push(response.data);
@@ -85,7 +85,7 @@ app.get('/challenge/activities', async (req, res) => {
 
 
 app.get('/login', (req, res) => {
-    const authorizeEndpoint = ENDPOINTS.STRAVA_AUTHORIZE
+    const authorizeEndpoint = ENDPOINTS.STRAVA_AUTHORIZE;
 
     const queryParams = new URLSearchParams({
         client_id: process.env.CLIENT_ID,
