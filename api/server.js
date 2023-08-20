@@ -7,6 +7,7 @@ const StravaApiV3 = require('strava_api_v3');
 const logger = require('morgan');
 const { refreshToken, isTokenExpired } = require("./oauth");
 const { ENDPOINTS, GRANT_TYPES, SCOPES } = require("./utils/utils");
+const { getChallengeStartTimestamp } = require("./config");
 
 app.set('view engine', 'ejs');
 app.use(logger('dev'));
@@ -60,16 +61,26 @@ app.get('/challenge/activities', async (req, res) => {
 
     const athletesCursor = athletesCollection.find();
 
+    const activities = [];
     for await (const athlete of athletesCursor) {
         let access_token = athlete.access_token;
         if (isTokenExpired(athlete.expires_at)) {
             access_token = await refreshToken(athlete.refresh_token, athlete.athleteId);
         }
-
-        const response = await axios.get(ENDPOINTS.STRAVA_ATHLETE_ACTIVITIES, { headers: { Authorization: `Bearer ${athlete.access_token}` } });
-
-
+        try {
+            const response = await axios.get(ENDPOINTS.STRAVA_ATHLETE_ACTIVITIES, {
+                params: { after: getChallengeStartTimestamp() },
+                headers: { Authorization: `Bearer ${athlete.access_token}` }
+            });
+            if (response.data.length > 0) {
+                activities.push(response.data);
+            }
+        } catch (error) {
+            console.dir(error);
+        }
     }
+
+    res.send(activities);
 })
 
 
