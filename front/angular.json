@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "kmd-sport-challenge": {
+    "KMD-Sport-Challenge-Front": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -17,7 +17,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:browser",
           "options": {
-            "outputPath": "dist/kmd-sport-challenge/browser",
+            "outputPath": "dist/kmd-sport-challenge-front",
             "index": "src/index.html",
             "main": "src/main.ts",
             "polyfills": [
@@ -65,10 +65,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "browserTarget": "kmd-sport-challenge:build:production"
+              "browserTarget": "KMD-Sport-Challenge-Front:build:production"
             },
             "development": {
-              "browserTarget": "kmd-sport-challenge:build:development"
+              "browserTarget": "KMD-Sport-Challenge-Front:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -76,7 +76,7 @@
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "browserTarget": "kmd-sport-challenge:build"
+            "browserTarget": "KMD-Sport-Challenge-Front:build"
           }
         },
         "test": {
@@ -97,61 +97,6 @@
             ],
             "scripts": []
           }
-        },
-        "server": {
-          "builder": "@angular-devkit/build-angular:server",
-          "options": {
-            "outputPath": "dist/kmd-sport-challenge/server",
-            "main": "server.ts",
-            "tsConfig": "tsconfig.server.json",
-            "inlineStyleLanguage": "scss"
-          },
-          "configurations": {
-            "production": {
-              "outputHashing": "media"
-            },
-            "development": {
-              "optimization": false,
-              "sourceMap": true,
-              "extractLicenses": false,
-              "vendorChunk": true,
-              "buildOptimizer": false
-            }
-          },
-          "defaultConfiguration": "production"
-        },
-        "serve-ssr": {
-          "builder": "@nguniversal/builders:ssr-dev-server",
-          "configurations": {
-            "development": {
-              "browserTarget": "kmd-sport-challenge:build:development",
-              "serverTarget": "kmd-sport-challenge:server:development"
-            },
-            "production": {
-              "browserTarget": "kmd-sport-challenge:build:production",
-              "serverTarget": "kmd-sport-challenge:server:production"
-            }
-          },
-          "defaultConfiguration": "development"
-        },
-        "prerender": {
-          "builder": "@nguniversal/builders:prerender",
-          "options": {
-            "routes": [
-              "/"
-            ]
-          },
-          "configurations": {
-            "production": {
-              "browserTarget": "kmd-sport-challenge:build:production",
-              "serverTarget": "kmd-sport-challenge:server:production"
-            },
-            "development": {
-              "browserTarget": "kmd-sport-challenge:build:development",
-              "serverTarget": "kmd-sport-challenge:server:development"
-            }
-          },
-          "defaultConfiguration": "production"
         }
       }
     }
