@@ -136,10 +136,15 @@ app.get('/callback', async (req, res) => {
         const result = await athletesCollection.updateOne({ athleteId: data.athleteId }, { $set: data }, { upsert: true });
         if (result.acknowledged) console.log(`User '${data.name}' registered.`)
 
-        res.send({
+        const token = {
             athleteName: data.name,
             athleteId: data.athleteId
+        };
+        const tokenBase64 = b64EncodeUnicode(JSON.stringify(token))
+        res.writeHead(302, {
+            'Location': `http://localhost:4200/auth-callback?token=${tokenBase64}`
         });
+        res.end();
     } catch (err) {
         res.send('Error retrieving access token')
     }
@@ -184,3 +189,9 @@ async function cleanup() {
 
 process.on('SIGINT', cleanup);
 process.on('SIGTERM', cleanup);
+
+function b64EncodeUnicode(str) {
+    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function(match, p1) {
+        return String.fromCharCode('0x' + p1);
+    }));
+}

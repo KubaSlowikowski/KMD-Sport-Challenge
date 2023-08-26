@@ -18,7 +18,7 @@ export class UserEffects {
     login$ = createEffect(() => this.actions$.pipe(
         ofType(UserActions.login),
         tap(_ => {
-            window.location.href = `http://localhost:4200/auth-callback?token=eyJhdGhsZXRlSWQiOjEsICJhdGhlbGV0ZU5hbWUiOiJNUCJ9`;
+            window.location.href = `http://localhost:3000/login`;
         }),
     ), { dispatch: false });
 

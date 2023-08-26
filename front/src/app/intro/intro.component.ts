@@ -1,6 +1,5 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { environment } from 'src/environments/environment';
 import { UserActions, UserState } from '../store/user';
 import { Store } from '@ngrx/store';
 
@@ -14,7 +13,6 @@ import { Store } from '@ngrx/store';
 export class IntroComponent {
 
   constructor (private store: Store<UserState>) {
-    
   }
 
   public login(): void {
