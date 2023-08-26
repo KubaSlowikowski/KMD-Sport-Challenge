@@ -1,6 +1,8 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { environment } from 'src/environments/environment';
+import { UserActions, UserState } from '../store/user';
+import { Store } from '@ngrx/store';
 
 @Component({
   selector: 'app-intro',
@@ -10,5 +12,12 @@ import { environment } from 'src/environments/environment';
   styleUrls: ['./intro.component.scss']
 })
 export class IntroComponent {
-  public loginUrl = `${environment.apiUrl}/login`;
+
+  constructor (private store: Store<UserState>) {
+    
+  }
+
+  public login(): void {
+    this.store.dispatch(UserActions.login());
+  }
 }
